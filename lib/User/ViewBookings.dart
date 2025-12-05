@@ -38,22 +38,22 @@ class _ViewBookingsPageState extends State<ViewBookingsPage> {
 
   Future<bool> _showDeleteConfirmationDialog() async {
     return await showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Delete Booking'),
-        content: Text('Are you sure you want to delete this booking?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel'),
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Delete Booking'),
+            content: Text('Request to delete booking?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text('Delete'),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text('Delete'),
-          ),
-        ],
-      ),
-    ) ??
+        ) ??
         false;
   }
 
@@ -76,34 +76,35 @@ class _ViewBookingsPageState extends State<ViewBookingsPage> {
       body: _bookings.isEmpty
           ? Center(child: Text('No bookings found'))
           : ListView.builder(
-        itemCount: _bookings.length,
-        itemBuilder: (context, index) {
-          final booking = _bookings[index];
-          return Card(
-            margin: EdgeInsets.all(8.0),
-            child: ListTile(
-              title: Text('Booking ID: ${booking['bookid']}'),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Food Truck Type: ${booking['foodtrucktype']}'),
-                  Text('Booking Date: ${booking['book_date']}'),
-                  Text('Booking Time: ${booking['booktime']}'),
-                  Text('Event Date: ${booking['eventdate']}'),
-                  Text('Event Time: ${booking['eventtime']}'),
-                  Text('Number of Days: ${booking['numberofdays']}'),
-                  Text('Price: RM${NumberFormat('###0.00').format(booking['price'])}'),
-                ],
-              ),
-              trailing: IconButton(
-                icon: Icon(Icons.delete),
-                onPressed: () => _deleteBooking(booking['bookid']),
-              ),
-              onTap: () => _editBooking(booking),
+              itemCount: _bookings.length,
+              itemBuilder: (context, index) {
+                final booking = _bookings[index];
+                return Card(
+                  margin: EdgeInsets.all(8.0),
+                  child: ListTile(
+                    title: Text('Booking ID: ${booking['bookid']}'),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Food Truck Type: ${booking['foodtrucktype']}'),
+                        Text('Booking Date: ${booking['book_date']}'),
+                        Text('Booking Time: ${booking['booktime']}'),
+                        Text('Event Date: ${booking['eventdate']}'),
+                        Text('Event Time: ${booking['eventtime']}'),
+                        Text('Number of Days: ${booking['numberofdays']}'),
+                        Text(
+                            'Price: RM${NumberFormat('###0.00').format(booking['price'])}'),
+                      ],
+                    ),
+                    trailing: IconButton(
+                      icon: Icon(Icons.delete),
+                      onPressed: () => _deleteBooking(booking['bookid']),
+                    ),
+                    onTap: () => _editBooking(booking),
+                  ),
+                );
+              },
             ),
-          );
-        },
-      ),
     );
   }
 }
