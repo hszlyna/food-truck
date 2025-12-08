@@ -26,6 +26,9 @@ class _EditBookingPageState extends State<EditBookingPage> {
     DropdownMenuItem(value: 'Takeaway', child: Text('Takeaway')),
   ];
 
+  TimeOfDay? _startTime;
+  TimeOfDay? _endTime;
+
   // Dummy cart data
   List<Map<String, dynamic>> cart = [
     {
@@ -50,24 +53,61 @@ class _EditBookingPageState extends State<EditBookingPage> {
     return total;
   }
 
+  @override
+  void initState() {
+    super.initState();
+    _initEventTime(); // Initialize start/end time
+  }
+
+  void _initEventTime() {
+    final eventTimeStr = widget.booking['eventtime']; // e.g., "13:00 - 18:00"
+    if (eventTimeStr != null && eventTimeStr.contains(" - ")) {
+      try {
+        final parts = eventTimeStr.split(" - ");
+        final start = DateFormat.Hm().parse(parts[0].trim());
+        final end = DateFormat.Hm().parse(parts[1].trim());
+        _startTime = TimeOfDay(hour: start.hour, minute: start.minute);
+        _endTime = TimeOfDay(hour: end.hour, minute: end.minute);
+      } catch (_) {
+        _startTime = TimeOfDay(hour: 13, minute: 0);
+        _endTime = TimeOfDay(hour: 18, minute: 0);
+      }
+    }
+  }
+
+  Future<void> _pickTime({required bool isStart}) async {
+    final initial = isStart
+        ? (_startTime ?? TimeOfDay(hour: 13, minute: 0))
+        : (_endTime ?? TimeOfDay(hour: 18, minute: 0));
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: initial,
+    );
+    if (picked != null) {
+      setState(() {
+        if (isStart)
+          _startTime = picked;
+        else
+          _endTime = picked;
+      });
+    }
+  }
+
+  String get _formattedEventTime {
+    final startStr = _startTime?.format(context) ?? "13:00";
+    final endStr = _endTime?.format(context) ?? "18:00";
+    return "$startStr - $endStr";
+  }
+
   Future<void> _updateBooking() async {
     if (_formKey.currentState!.saveAndValidate()) {
       final values = _formKey.currentState!.value;
-      final eventTimeParts = values['event_time']?.split(' - ') ?? [];
-
-      if (eventTimeParts.length != 2) {
-        _showSnackBar(
-          message: 'Invalid time format. Please use HH:mm - HH:mm.',
-          isError: true,
-        );
-        return;
-      }
 
       final updatedBooking = {
         'book_date': DateFormat('yyyy-MM-dd').format(values['booking_date']),
         'booktime': DateFormat('HH:mm:ss').format(values['booking_date']),
         'eventdate': values['event_date_range']?.start.toIso8601String(),
-        'eventtime': values['event_time'],
+        'eventtime': _formattedEventTime,
         'foodtrucktype': values['food_sell_types'],
         'numberofdays': widget.booking['numberofdays'],
       };
@@ -77,10 +117,7 @@ class _EditBookingPageState extends State<EditBookingPage> {
         updatedBooking,
       );
 
-      _showSnackBar(
-        message: 'Booking updated successfully!',
-        isError: false,
-      );
+      _showSnackBar(message: 'Booking updated successfully!', isError: false);
 
       widget.onUpdate();
       Navigator.pop(context);
@@ -168,7 +205,6 @@ class _EditBookingPageState extends State<EditBookingPage> {
               end: DateTime.parse(widget.booking['eventdate'])
                   .add(Duration(days: widget.booking['numberofdays'])),
             ),
-            'event_time': widget.booking['eventtime'],
             'food_sell_types': widget.booking['foodtrucktype'],
           },
           child: Column(
@@ -195,11 +231,6 @@ class _EditBookingPageState extends State<EditBookingPage> {
         prefixIcon: Icon(Icons.calendar_today, color: Colors.blue),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey[300]!),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.blue, width: 1.5),
         ),
       ),
       firstDate: DateTime.now(),
@@ -218,11 +249,6 @@ class _EditBookingPageState extends State<EditBookingPage> {
         prefixIcon: Icon(Icons.date_range, color: Colors.blue),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey[300]!),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.blue, width: 1.5),
         ),
       ),
       firstDate: DateTime.now(),
@@ -235,31 +261,42 @@ class _EditBookingPageState extends State<EditBookingPage> {
   }
 
   Widget _buildTimeInput() {
-    return FormBuilderTextField(
-      name: 'event_time',
-      decoration: InputDecoration(
-        labelText: 'Event Time (HH:mm - HH:mm)',
-        hintText: 'e.g., 10:00 - 14:00',
-        prefixIcon: Icon(Icons.access_time, color: Colors.blue),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey[300]!),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Event Time',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+            color: Colors.grey[800],
+          ),
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.blue, width: 1.5),
+        SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () => _pickTime(isStart: true),
+                child: Text(
+                  _startTime != null
+                      ? _startTime!.format(context)
+                      : "Start Time",
+                ),
+              ),
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () => _pickTime(isStart: false),
+                child: Text(
+                  _endTime != null ? _endTime!.format(context) : "End Time",
+                ),
+              ),
+            ),
+          ],
         ),
-      ),
-      validator: FormBuilderValidators.compose([
-        FormBuilderValidators.required(errorText: 'Event time is required'),
-        (value) {
-          final regex = RegExp(r'^\d{2}:\d{2} - \d{2}:\d{2}$');
-          if (value == null || !regex.hasMatch(value)) {
-            return 'Please enter a valid time range (e.g., 10:00 - 14:00)';
-          }
-          return null;
-        },
-      ]),
+      ],
     );
   }
 
@@ -272,11 +309,6 @@ class _EditBookingPageState extends State<EditBookingPage> {
         prefixIcon: Icon(Icons.fastfood, color: Colors.blue),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey[300]!),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.blue, width: 1.5),
         ),
       ),
       validator: FormBuilderValidators.required(
