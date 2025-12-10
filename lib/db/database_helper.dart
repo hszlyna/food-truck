@@ -21,15 +21,15 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,   // UPGRADED VERSION
       onCreate: _createDB,
+      onUpgrade: _upgradeDB,
     );
   }
 
-//============================================================
-//                  T   A   B   L   E   S
-//============================================================
-
+  //============================================================
+  //                    DATABASE CREATION
+  //============================================================
   Future _createDB(Database db, int version) async {
     await db.execute('''
       CREATE TABLE users (
@@ -64,17 +64,39 @@ class DatabaseHelper {
         password TEXT NOT NULL
       )
     ''');
+
+    // NEW: Food Truck Table
+    await db.execute('''
+      CREATE TABLE foodtrucks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        image TEXT
+      )
+    ''');
   }
 
-//============================================================
-//============================================================
+  //============================================================
+  //                  DATABASE UPGRADE HANDLER
+  //============================================================
+  Future<void> _upgradeDB(Database db, int oldV, int newV) async {
+    if (oldV < 2) {
+      await db.execute('''
+        CREATE TABLE foodtrucks (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          image TEXT
+        )
+      ''');
+    }
+  }
 
+  //============================================================
+  //                       USER SECTION
+  //============================================================
 
-  // Function to register a new user
   Future<int> registerUser(Map<String, dynamic> user) async {
     final db = await instance.database;
 
-    // Check if username already exists
     final existingUsers = await db.query(
       'users',
       where: 'username = ?',
@@ -82,45 +104,24 @@ class DatabaseHelper {
     );
 
     if (existingUsers.isNotEmpty) {
-      // Username already exists
-      return -1; // Indicate failure
+      return -1;
     }
 
-    // Insert new user
     return await db.insert('users', user);
   }
 
-  //============================================================
-
-  // Function to login a user
   Future<Map<String, dynamic>?> loginUser(String username, String password) async {
     final db = await instance.database;
 
-    // Query the database for matching username and password
     final result = await db.query(
       'users',
       where: 'username = ? AND password = ?',
       whereArgs: [username, password],
     );
 
-    if (result.isNotEmpty) {
-      return result.first; // Return user data if login is successful
-    } else {
-      return null; // Login failed
-    }
+    return result.isNotEmpty ? result.first : null;
   }
 
-  //============================================================
-
-  // Function to add booking
-  Future<int> addBooking(Map<String, dynamic> booking) async {
-    final db = await instance.database;
-    return await db.insert('truckbook', booking);
-  }
-
-  //============================================================
-
-  // Get user profile by user ID
   Future<Map<String, dynamic>?> getUserInfo(int userId) async {
     final db = await instance.database;
     final result = await db.query(
@@ -131,9 +132,6 @@ class DatabaseHelper {
     return result.isNotEmpty ? result.first : null;
   }
 
-  //============================================================
-
-  // Update user profile
   Future<int> updateUserInfo(int userId, Map<String, dynamic> updatedValues) async {
     final db = await instance.database;
     return await db.update(
@@ -144,125 +142,20 @@ class DatabaseHelper {
     );
   }
 
-  //============================================================
-
-  // Get bookings for a user
-  Future<List<Map<String, dynamic>>> getBookings(int userId) async {
-    final db = await instance.database;
-    return await db.query(
-      'truckbook',
-      where: 'userid = ?',
-      whereArgs: [userId],
-    );
-  }
-
-  //============================================================
-
-  // Update booking
-  Future<int> updateBooking(int bookingId, Map<String, dynamic> updatedBooking) async {
-    final db = await instance.database;
-    return await db.update(
-      'truckbook',
-      updatedBooking,
-      where: 'bookid = ?',
-      whereArgs: [bookingId],
-    );
-  }
-
-  //============================================================
-
-  // Delete booking
-  Future<int> deleteBooking(int bookingId) async {
-    final db = await instance.database;
-    return await db.delete(
-      'truckbook',
-      where: 'bookid = ?',
-      whereArgs: [bookingId],
-    );
-  }
-
-  //============================================================
-
-  Future<List<Map<String, dynamic>>> getFoodTruckTypes() async {
-    final db = await instance.database;
-
-    return await db.query('foodtruck', columns: ['foodtrucktype']);
-  }
-
-  //============================================================
-
-  // Insert predefined admin data
-  Future<void> insertAdminData() async {
-    final db = await instance.database;
-
-    // Insert admin credentials (username and password)
-    await db.insert(
-      'administrator', { 'username': 'admin', 'password': 'admin123', },
-      conflictAlgorithm: ConflictAlgorithm.replace, // In case the admin already exists
-    );
-  }
-
-  //============================================================
-
-  // Method to check admin login (for validation in the login function)
-  Future<Map<String, dynamic>?> loginAdmin(String username, String password) async {
-    final db = await instance.database;
-
-    // Query to find the admin by username and password
-    final List<Map<String, dynamic>> results = await db.query(
-      'administrator',
-      where: 'username = ? AND password = ?',
-      whereArgs: [username, password],
-    );
-
-    if (results.isNotEmpty) {
-      return results.first;
-    }
-    return null;
-  }
-
-  //============================================================
-
-  // Fetch all registered users
   Future<List<Map<String, dynamic>>> getUsers() async {
     final db = await instance.database;
     return await db.query('users');
   }
 
-  //============================================================
-
-  // Fetch all bookings
-  Future<List<Map<String, dynamic>>> getAllBookings() async {
-    final db = await instance.database;
-    return await db.query('truckbook');
-  }
-
-  //============================================================
-
-  // Delete a booking by ID
-  Future<void> adminDeleteBooking(int bookingId) async {
-    final db = await instance.database;
-    await db.delete(
-      'truckbook',
-      where: 'bookid = ?',
-      whereArgs: [bookingId],
-    );
-  }
-
-  //============================================================
-
-  // Delete a user and their associated bookings
   Future<void> adminDeleteUser(int userId) async {
     final db = await instance.database;
 
-    // Delete bookings first to maintain database integrity
     await db.delete(
       'truckbook',
       where: 'userid = ?',
       whereArgs: [userId],
     );
 
-    // Then delete the user
     await db.delete(
       'users',
       where: 'userid = ?',
@@ -270,9 +163,6 @@ class DatabaseHelper {
     );
   }
 
-  //============================================================
-
-  // Update user details
   Future<int> adminUpdateUser(int userId, Map<String, dynamic> updatedValues) async {
     final db = await instance.database;
 
@@ -284,7 +174,117 @@ class DatabaseHelper {
     );
   }
 
+  //============================================================
+  //                     BOOKING SECTION
+  //============================================================
 
+  Future<int> addBooking(Map<String, dynamic> booking) async {
+    final db = await instance.database;
+    return await db.insert('truckbook', booking);
+  }
+
+  Future<List<Map<String, dynamic>>> getBookings(int userId) async {
+    final db = await instance.database;
+    return await db.query(
+      'truckbook',
+      where: 'userid = ?',
+      whereArgs: [userId],
+    );
+  }
+
+  Future<int> updateBooking(int bookingId, Map<String, dynamic> updatedBooking) async {
+    final db = await instance.database;
+    return await db.update(
+      'truckbook',
+      updatedBooking,
+      where: 'bookid = ?',
+      whereArgs: [bookingId],
+    );
+  }
+
+  Future<int> deleteBooking(int bookingId) async {
+    final db = await instance.database;
+    return await db.delete(
+      'truckbook',
+      where: 'bookid = ?',
+      whereArgs: [bookingId],
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getAllBookings() async {
+    final db = await instance.database;
+    return await db.query('truckbook');
+  }
+
+  Future<void> adminDeleteBooking(int bookingId) async {
+    final db = await instance.database;
+
+    await db.delete(
+      'truckbook',
+      where: 'bookid = ?',
+      whereArgs: [bookingId],
+    );
+  }
+
+  //============================================================
+  //                     ADMIN SECTION
+  //============================================================
+
+  Future<void> insertAdminData() async {
+    final db = await instance.database;
+
+    await db.insert(
+      'administrator',
+      {
+        'username': 'admin',
+        'password': 'admin123',
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<Map<String, dynamic>?> loginAdmin(String username, String password) async {
+    final db = await instance.database;
+
+    final results = await db.query(
+      'administrator',
+      where: 'username = ? AND password = ?',
+      whereArgs: [username, password],
+    );
+
+    return results.isNotEmpty ? results.first : null;
+  }
+
+  //============================================================
+  //                 FOOD TRUCK MANAGEMENT (NEW)
+  //============================================================
+
+  // Get all food trucks
+  Future<List<Map<String, dynamic>>> getFoodTrucks() async {
+    final db = await instance.database;
+    return await db.query('foodtrucks');
+  }
+
+  // Add a new food truck
+  Future<int> addFoodTruck(String name, String image) async {
+    final db = await instance.database;
+    return await db.insert('foodtrucks', {
+      'name': name,
+      'image': image,
+    });
+  }
+
+  // Delete a food truck
+  Future<int> deleteFoodTruck(int id) async {
+    final db = await instance.database;
+    return await db.delete(
+      'foodtrucks',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  //============================================================
   Future<void> close() async {
     final db = await instance.database;
     db.close();
